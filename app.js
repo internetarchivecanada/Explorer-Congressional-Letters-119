@@ -316,6 +316,20 @@ function topicTags(row) {
     link({ view: 'search', q: t }, 'topic', t));
 }
 
+// Notes joining this letter to another by hand (vocabulary/letter-related.csv):
+// "Supports" on a supporting document, "Supporting document" on the letter it
+// supports. Each names the other letter and opens its PDF.
+const relatedNotes = row => (INDEX.related || {})[get(row, 'digest')] || [];
+
+function relatedLine(row) {
+  const notes = relatedNotes(row);
+  if (!notes.length) return null;
+  return el('span', { class: 'related' }, ...notes.flatMap(([label, title, url], i) => [
+    i ? ' · ' : '', `${label}: `,
+    el('a', { href: url, target: '_blank', rel: 'noopener' }, title),
+  ]));
+}
+
 function shot(row) {
   const src = thumbUrl(row);
   const subject = get(row, 'subject');
@@ -358,7 +372,12 @@ function shot(row) {
 function wall(rows) {
   const limit = shown || WALL;
   const box = el('div', { class: 'wall' },
-    ...rows.slice(0, limit).map(shot));
+    // A card is itself a link, and a link cannot hold another, so a related
+    // note sits just under its card rather than inside it.
+    ...rows.slice(0, limit).map(row => {
+      const note = relatedLine(row);
+      return note ? el('div', { class: 'shotwrap' }, shot(row), note) : shot(row);
+    }));
   const out = el('div', {}, box);
   if (rows.length > limit) {
     out.append(el('button', {
@@ -386,7 +405,8 @@ function table(rows, opts = {}) {
           : el('span', { class: 'faint' }, 'not named')),
       el('td', { class: 'sub2' },
         get(row, 'subject') || el('span', { class: 'faint' }, '—'),
-        (() => { const t = topicTags(row); return t && t.length ? el('span', { class: 'topics' }, t) : null; })()),
+        (() => { const t = topicTags(row); return t && t.length ? el('span', { class: 'topics' }, t) : null; })(),
+        relatedLine(row)),
       el('td', {},
         el('a', {
           href: waybackUrl(row), target: '_blank', rel: 'noopener',
